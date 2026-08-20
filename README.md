@@ -4,8 +4,6 @@
 report in seconds — no attacks, no exploitation, nothing sent that a normal
 browser wouldn't send.
 
-![Input screen](docs/images/input-screen.png)
-
 ## The passive-only ethic
 
 Sentinels never attacks the sites it scans. Every check is one of:
@@ -44,8 +42,6 @@ summary on top. When two agents see the same underlying problem (e.g. a
 subdomain missing the same header the apex is already flagged for), scoring
 deduplicates repeated hits, decays them, and caps each new agent's total
 penalty rather than stacking the same issue over and over.
-
-![Report screen](docs/images/report-screen.png)
 
 ## Scanning a repository, not just a URL
 
