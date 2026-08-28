@@ -21,6 +21,7 @@ imports, installs, or executes a single line of the scanned repo's code.
 from __future__ import annotations
 
 import io
+import os
 import re
 import shutil
 import tarfile
@@ -34,6 +35,26 @@ from pathlib import Path
 import httpx
 
 GITHUB_API = "https://api.github.com"
+
+
+def _github_headers() -> dict[str, str]:
+    """Auth header for the two GitHub API calls below, if a token is set.
+
+    Unauthenticated requests share GitHub's 60/hour-per-IP limit -- on a
+    single-instance deploy that's one IP for every visitor combined, so a
+    handful of repo scans in the same hour (2 GitHub calls each: metadata +
+    tarball) can lock everyone out until it resets. `SENTINELS_GITHUB_API_TOKEN`
+    needs no scopes at all -- these are public reads any token already gets --
+    and raises the ceiling to 5,000/hour.
+
+    Deliberately not a default header on the shared `httpx.AsyncClient`:
+    `agents/repo/dependencies.py` reuses that same client for OSV.dev lookups,
+    and a client-wide header would leak this token to that host too. Passed
+    explicitly per-call instead, same as every other GitHub credential in
+    this codebase (see auth/github_oauth.py, remediation/tokens.py).
+    """
+    token = os.environ.get("SENTINELS_GITHUB_API_TOKEN")
+    return {"Authorization": f"Bearer {token}"} if token else {}
 
 # Matches ANY "word://" prefix, same reasoning as orchestrator._SCHEME_RE --
 # only prepend https:// when there's truly no scheme at all, so a URL with
@@ -139,7 +160,9 @@ async def fetch_repo(
     directory is removed on the way out no matter how the block exits,
     including when a guard below raises partway through.
     """
-    meta_response = await client.get(f"{GITHUB_API}/repos/{owner}/{repo}")
+    meta_response = await client.get(
+        f"{GITHUB_API}/repos/{owner}/{repo}", headers=_github_headers()
+    )
     if meta_response.status_code == 404:
         raise ValueError(f"GitHub repo {owner}/{repo} not found")
     _raise_for_github_status(meta_response)
@@ -163,7 +186,9 @@ async def fetch_repo(
         # follow_redirects=True here (unlike exposure.py's checks) is correct:
         # GitHub's tarball endpoint always 302s to codeload.github.com, and
         # following that is the whole point of this request.
-        async with client.stream("GET", tarball_url, follow_redirects=True) as response:
+        async with client.stream(
+            "GET", tarball_url, follow_redirects=True, headers=_github_headers()
+        ) as response:
             if response.status_code == 404:
                 raise ValueError(f"Ref {resolved_ref!r} not found in {owner}/{repo}")
             _raise_for_github_status(response)
