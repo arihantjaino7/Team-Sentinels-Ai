@@ -17,8 +17,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { streamScan, streamRepoScan, type AgentResult, type TargetType } from "@/lib/api";
+import { streamScan, streamRepoScan, githubLoginUrl, type AgentResult, type TargetType } from "@/lib/api";
 import { ScanProgress } from "@/components/ScanProgress";
+import { useSession } from "@/lib/useSession";
 
 type ScanLauncherProps = {
   /** Rendered above the form, and hidden while a scan is running so the
@@ -49,9 +50,17 @@ export function ScanLauncher({
   targetType = "url",
 }: ScanLauncherProps) {
   const router = useRouter();
+  const { user, loading: sessionLoading } = useSession();
   const [url, setUrl] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Every scan route requires a signed-in session, and `EventSource` (unlike
+  // `fetch`) has no way to read the 401 that comes back — it only ever sees
+  // "the connection failed," which onerror below reports as "Lost connection
+  // to the scanner." That's true but misleading: the actual cause is almost
+  // always "not signed in," so it's worth checking and saying that plainly,
+  // rather than making someone debug a phantom connection problem.
+  const [needsAuth, setNeedsAuth] = useState(false);
   // Filled in one at a time as each "agent" SSE event arrives — this is what
   // makes the waiting state below real instead of a generic pulse.
   const [agentResults, setAgentResults] = useState<Record<string, AgentResult>>({});
@@ -64,6 +73,17 @@ export function ScanLauncher({
     if (!url.trim() || isScanning) return;
 
     setError(null);
+    setNeedsAuth(false);
+
+    // Still resolving the session on first load is the one case this can't
+    // pre-empt — sessionLoading is false almost immediately, and a signed-out
+    // submit in that narrow window just falls through to the normal
+    // onerror/"Lost connection" path below, same as before this existed.
+    if (!sessionLoading && !user) {
+      setNeedsAuth(true);
+      return;
+    }
+
     setAgentResults({});
     setIsScanning(true);
 
@@ -133,6 +153,23 @@ export function ScanLauncher({
       </form>
 
       {isScanning && <ScanProgress agentResults={agentResults} targetType={targetType} />}
+
+      {needsAuth && (
+        <div className="mt-10 border-l-2 border-parchment/40 pl-4">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-parchment">
+            Sign in to continue
+          </p>
+          <p className="mt-2 text-sm text-muted">
+            Running a scan needs a signed-in session.
+          </p>
+          <a
+            href={githubLoginUrl()}
+            className="glass mt-4 inline-block border-parchment/25 px-5 py-2.5 font-mono text-xs uppercase tracking-[0.2em] text-parchment transition-colors hover:bg-white/10"
+          >
+            Sign in with GitHub →
+          </a>
+        </div>
+      )}
 
       {error && (
         <div className="mt-10 border-l-2 border-critical pl-4">
