@@ -6,6 +6,7 @@ import {
   Space_Grotesk,
 } from "next/font/google";
 import "./globals.css";
+import { AccountControl } from "@/components/AccountControl";
 
 /* Three type roles, per docs/DESIGN.md — not two.
 
@@ -65,7 +66,10 @@ export default function RootLayout({
       lang="en"
       className={`${instrumentSerif.variable} ${jetbrainsMono.variable} ${inter.variable} ${spaceGrotesk.variable} h-full antialiased`}
     >
-      <body className="font-body min-h-full flex flex-col">{children}</body>
+      <body className="font-body min-h-full flex flex-col">
+        <AccountControl />
+        {children}
+      </body>
     </html>
   );
 }

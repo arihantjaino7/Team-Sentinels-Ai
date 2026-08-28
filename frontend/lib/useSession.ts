@@ -35,12 +35,26 @@ export function useSession(): SessionState {
 
   useEffect(() => {
     let cancelled = false;
-    fetchMe().then((result) => {
-      if (!cancelled) {
-        setUser(result);
-        setLoading(false);
-      }
-    });
+    fetchMe()
+      .then((result) => {
+        if (!cancelled) {
+          setUser(result);
+          setLoading(false);
+        }
+      })
+      // `fetchMe` only handles a non-2xx response (`res.ok` false → null); it
+      // never catches `fetch` itself rejecting, which happens on a real
+      // network failure — a DNS hiccup, or the backend still waking up from
+      // a free-tier cold start. Uncaught, that left `loading` stuck `true`
+      // forever, since nothing after it ever ran. Treating it the same as
+      // "no session" is the right fallback: every caller already renders
+      // signed-out UI for `user === null`.
+      .catch(() => {
+        if (!cancelled) {
+          setUser(null);
+          setLoading(false);
+        }
+      });
     return () => {
       cancelled = true;
     };
