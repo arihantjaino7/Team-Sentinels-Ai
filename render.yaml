@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: sentinels-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /health
+    disk:
+      name: sentinels-data
+      # db.py's DB_PATH resolves to backend/data/sentinels.db relative to
+      # this file, and the Dockerfile's WORKDIR is /app/backend — so the
+      # disk has to mount there, not at /app/data, for the SQLite file to
+      # actually land on persistent storage.
+      mountPath: /app/backend/data
+      sizeGB: 1
+    envVars:
+      - key: SENTINELS_ENV
+        value: production
+      - key: SENTINELS_SESSION_SECRET
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GITHUB_APP_CLIENT_ID
+        sync: false
+      - key: GITHUB_APP_CLIENT_SECRET
+        sync: false
+      - key: GITHUB_APP_SLUG
+        sync: false
+      - key: GITHUB_APP_ID
+        sync: false
+      - key: GITHUB_APP_PRIVATE_KEY_PATH
+        sync: false
+      - key: SENTINELS_FRONTEND_ORIGIN
+        sync: false
