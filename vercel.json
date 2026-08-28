@@ -1,0 +1,10 @@
+{
+  "services": {
+    "frontend": {
+      "root": "frontend/"
+    }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": { "service": "frontend" } }
+  ]
+}
