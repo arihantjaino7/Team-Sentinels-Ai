@@ -6,14 +6,12 @@ services:
     dockerContext: ./backend
     plan: free
     healthCheckPath: /health
-    disk:
-      name: sentinels-data
-      # db.py's DB_PATH resolves to backend/data/sentinels.db relative to
-      # this file, and the Dockerfile's WORKDIR is /app/backend — so the
-      # disk has to mount there, not at /app/data, for the SQLite file to
-      # actually land on persistent storage.
-      mountPath: /app/backend/data
-      sizeGB: 1
+    # Render's free plan does not support persistent disks (paid plans only).
+    # db.py's DB_PATH (backend/data/sentinels.db) therefore lives on the
+    # container's ephemeral filesystem — it survives restarts within the
+    # same running instance, but resets on every redeploy. Fine for a
+    # hackathon demo; upgrade to a paid plan and add a `disk:` block
+    # mounted at /app/backend/data if scans need to persist across deploys.
     envVars:
       - key: SENTINELS_ENV
         value: production
