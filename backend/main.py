@@ -9,6 +9,7 @@ Run locally:
 from __future__ import annotations
 
 import json
+import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -115,9 +116,15 @@ app = FastAPI(
 # signed-in user. The two are a package deal in the CORS spec: a wildcard
 # origin and allow_credentials cannot be combined, which is one more reason
 # the explicit two-origin list above was already the right call.
+#
+# Deployed, the frontend lives on its own domain rather than localhost:3000 —
+# `get_frontend_origin()` already reads SENTINELS_FRONTEND_ORIGIN for the
+# post-login redirect, so the same value is reused here rather than adding a
+# second env var that could drift out of sync with it.
+_allowed_origins = {"http://localhost:3000", "http://127.0.0.1:3000", get_frontend_origin()}
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=list(_allowed_origins),
     allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["Content-Type"],
     allow_credentials=True,
@@ -127,10 +134,22 @@ app.add_middleware(
 # never drift apart — a cookie set with one set of flags and cleared with
 # another can end up not actually clearing (the browser treats "same name,
 # different path/attrs" as a different cookie).
+#
+# Locally the frontend (localhost:3000) and backend (localhost:8000) are
+# same-site, so samesite="lax" with no `secure` flag works over plain HTTP.
+# Deployed, frontend and backend sit on two different domains — every
+# fetch() call becomes cross-site, and SameSite=Lax cookies are not sent on
+# cross-site fetch/XHR (only on top-level navigation, which is why the OAuth
+# redirect itself would still appear to succeed while every API call after
+# it looked logged-out). samesite="none" fixes that, but browsers require
+# `secure=True` alongside it — which needs real HTTPS, so this only turns on
+# when SENTINELS_ENV=production.
+_IS_PRODUCTION = os.environ.get("SENTINELS_ENV") == "production"
 _COOKIE_KWARGS = dict(
     key=COOKIE_NAME,
     httponly=True,       # invisible to page JavaScript — an XSS bug can't read it
-    samesite="lax",      # sent on top-level navigation, not on cross-site POSTs
+    samesite="none" if _IS_PRODUCTION else "lax",
+    secure=_IS_PRODUCTION,
     path="/",
 )
 
