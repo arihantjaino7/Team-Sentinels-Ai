@@ -161,12 +161,19 @@ def root() -> dict:
 
 
 @app.get("/health")
+@app.head("/health")
 def health() -> dict:
     """Liveness check.
 
     Deliberately does no work — no network calls, no disk, no agents. Its only
     job is to answer "is this process up and routing?". If it ever gets slow,
     a monitor watching it can no longer tell "server down" from "server busy".
+
+    `@app.head` too, not just `@app.get`: uptime monitors (UptimeRobot among
+    them) default to HEAD requests, and FastAPI doesn't synthesize a HEAD
+    handler from a GET one -- a HEAD request against a GET-only route 405s.
+    That silently broke this exact keep-alive setup, whose whole job is
+    hitting this endpoint on a schedule.
     """
     return {
         "status": "ok",
