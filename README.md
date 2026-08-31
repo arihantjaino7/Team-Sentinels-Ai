@@ -4,6 +4,11 @@
 report in seconds — no attacks, no exploitation, nothing sent that a normal
 browser wouldn't send.
 
+**Live:** [team-sentinels-ai.vercel.app](https://team-sentinels-ai.vercel.app) —
+sign in with GitHub, then scan a live site (`example.com` works) or a public
+repo (`github.com/octocat/Hello-World` works) to see a full graded report,
+including PDF export.
+
 ## The passive-only ethic
 
 Sentinels never attacks the sites it scans. Every check is one of:
